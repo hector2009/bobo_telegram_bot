@@ -4,16 +4,24 @@ const { Telegraf } = require("telegraf");
 const { code } = require('telegraf/format');
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
+const { MESSAGES } = require("./i18n");
+
+const ADMINS = process.env.ADMINS
+    ? process.env.ADMINS.split(",").map(id => Number(id))
+    : [];
+
+// Start command
 bot.start(async (ctx) => {
+    const msg = t(ctx);
     const args = ctx.message.text.split(" ");
     const params = args[1].split("_x_");
 
     if (!params[0] || !params[0].startsWith("confirm_")) {
-        return ctx.reply("Number not found.");
+        return ctx.reply(msg.number_not_found);
     }
 
     if (!params[1] || !params[1].startsWith("hash_")) {
-        return ctx.reply("Hash not found.");
+        return ctx.reply(msg.hash_not_found);
     }
 
     const phone = params[0].replace("confirm_", "");
@@ -35,29 +43,29 @@ bot.start(async (ctx) => {
         const result = await response.json();
 
         if (result.success) {
-            ctx.reply(`Your number +${phone} has been confirmed! 🎉`);
+            ctx.reply(msg.confirmed(phone));
         } else {
-            ctx.reply("An error occurred: " + result.message);
+            ctx.reply(msg.error(result.message));
         }
     } catch (err) {
         console.error(err);
-        ctx.reply("Error sending request to server.");
+        ctx.reply(msg.server_error);
     }
 });
 
-const ADMINS = [592987264]; // <-- твой chat_id
-
+// Send message command
 bot.command("send", async (ctx) => {
+    const msg = t(ctx);
     const senderId = ctx.from.id;
 
     if (!ADMINS.includes(senderId)) {
-        return ctx.reply("⛔ You do not have permission to use this command.");
+        return ctx.reply(msg.no_permission);
     }
 
     const text = ctx.message.text.replace("/send", "").trim();
 
     if (!text) {
-        return ctx.reply("❗ Specify text: /send message");
+        return ctx.reply(msg.specify_text);
     }
 
     // Получаем chat_id из базы
@@ -65,7 +73,7 @@ bot.command("send", async (ctx) => {
 
     const chatIds = chatIdsResponse.data;
 
-    ctx.reply(`🚀 Mailing started. Recipients: ${chatIds.length}`);
+    ctx.reply(msg.mailing_started(chatIds.length));
 
     let sent = 0;
     for (const id of chatIds) {
@@ -80,29 +88,46 @@ bot.command("send", async (ctx) => {
         }
     }
 
-    ctx.reply(`✔️ Done! Sent: ${sent}`);
+    ctx.reply(msg.mailing_done(sent));
 });
 
-async function getAllChatIdsFromDatabase() {
-        // fetch встроен в Node 24
-        const response = await fetch(process.env.API_URL + "get_all_chat_ids", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                code: process.env.WP_PLUGIN_CODE,
-            }),
-        });
-
-        return await response.json();
-}
-
+// Get chat ID command
 bot.command("myid", (ctx) => {
+    const msg = t(ctx);
+    const senderId = ctx.from.id;
+
     if (!ADMINS.includes(senderId)) {
-        return ctx.reply("⛔ You do not have permission to use this command.");
+        return ctx.reply(msg.no_permission);
     }
 
-    ctx.reply(`Your chat_id: ${ctx.chat.id}`);
+    ctx.reply(msg.my_chat_id(ctx.chat.id));
 });
 
+// Helper function to get all chat IDs from the database
+async function getAllChatIdsFromDatabase() {
+    // fetch встроен в Node 24
+    const response = await fetch(process.env.API_URL + "get_all_chat_ids", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            code: process.env.WP_PLUGIN_CODE,
+        }),
+    });
+
+    return await response.json();
+}
+
+// i18n function
+function t(ctx) {
+    const lang =
+        ctx.from?.language_code?.startsWith("uk")
+            ? "uk"
+            : process.env.DEFAULT_LANG || "en";
+
+    return MESSAGES[lang] || MESSAGES.uk;
+}
+
 bot.launch();
+
+console.log("🚀 API_URL:", process.env.API_URL);
 console.log("🚀 Bot started...");
