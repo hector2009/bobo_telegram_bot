@@ -1,5 +1,6 @@
 require('dotenv').config();
 
+const http = require("http");
 const { Telegraf } = require("telegraf");
 const { code } = require('telegraf/format');
 const bot = new Telegraf(process.env.BOT_TOKEN);
@@ -126,6 +127,15 @@ function t(ctx) {
 
     return MESSAGES[lang] || MESSAGES.uk;
 }
+
+const PORT = process.env.PORT || 3000;
+
+http.createServer((req, res) => {
+    res.writeHead(200);
+    res.end("Bot is running");
+}).listen(PORT, () => {
+    console.log(`🌐 HTTP server listening on ${PORT}`);
+});
 
 bot.launch();
 
