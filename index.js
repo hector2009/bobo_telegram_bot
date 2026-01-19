@@ -95,11 +95,6 @@ bot.command("send", async (ctx) => {
 // Get chat ID command
 bot.command("myid", (ctx) => {
     const msg = t(ctx);
-    const senderId = ctx.from.id;
-
-    if (!ADMINS.includes(senderId)) {
-        return ctx.reply(msg.no_permission);
-    }
 
     ctx.reply(msg.my_chat_id(ctx.chat.id));
 });
